@@ -1,20 +1,54 @@
+# 本文件由 scripts/gen-pyprojects.py 从 scripts/repo_config.py 生成，不要手改。
+# 改元数据请改 repo_config.py 后重跑：python scripts/gen-pyprojects.py
+
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dbt-store"
+name = "sqltk-store"
 version = "0.2.0"
 description = "统一档案存储（SQLite，零第三方依赖）：实例档案、指标观测、分位数基线、发现生命周期、事故、变更事件。所有 MCP 的唯一数据落点。"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "Proprietary"}
-
-dependencies = [
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "罗文星", email = "1172566410@qq.com" }]
+maintainers = [{ name = "罗文星", email = "1172566410@qq.com" }]
+keywords = ["database", "sql", "dba", "database-tooling", "llm", "mcp", "sqlite", "profiling-store", "dba-workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/YOUR_GH_OWNER/sqltk-store"
+Repository = "https://github.com/YOUR_GH_OWNER/sqltk-store"
+Issues = "https://github.com/YOUR_GH_OWNER/sqltk-store/issues"
+Changelog = "https://github.com/YOUR_GH_OWNER/db-ai-toolchain/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed", "*.yaml", "*.yml", "*.json"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["F", "E9"]

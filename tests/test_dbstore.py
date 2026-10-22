@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dbt-store 回归测试：档案存储 schema v3
+"""sqltk-store 回归测试：档案存储 schema v3
 
 不依赖 pytest / 真实数据库。直接运行：
 

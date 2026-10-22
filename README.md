@@ -1,9 +1,18 @@
-# dbt-store
+# sqltk-store
 
 **统一档案存储** · Library（不是 MCP）
 
 > 所有 MCP 的**唯一数据落点**。零第三方依赖（标准库 `sqlite3`），任何 MCP 都能无负担依赖。
 > `mcp-profile-hub` 是它的 MCP 外壳；但装不装 hub，不影响任何 MCP 写档案。
+
+> 发行名 `sqltk-store`，import 包名 `dbstore`（`pip install sqltk-store` → `import dbstore`）—— 两者不同是刻意的，原因见顶层 README「命名」。
+
+## 安装
+
+```bash
+pip install sqltk-store                        # 从 PyPI
+pip install ./sqltk-store                      # 从源码（在工具链根目录执行）
+```
 
 ## 为什么不通过 MCP 协议集中写
 
@@ -42,3 +51,7 @@
 ```bash
 python tests/test_dbstore.py
 ```
+
+## 许可
+
+MIT © 2026 罗文星 —— 见 [LICENSE](LICENSE)。
