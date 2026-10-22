@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dbt-store"
+version = "0.2.0"
+description = "统一档案存储（SQLite，零第三方依赖）：实例档案、指标观测、分位数基线、发现生命周期、事故、变更事件。所有 MCP 的唯一数据落点。"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+
+dependencies = [
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed", "*.yaml", "*.yml", "*.json"]
