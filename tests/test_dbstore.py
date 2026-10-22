@@ -97,6 +97,62 @@ else:
 
 
 # ==================================================================
+section("14. 旧库升级（v2 档案库直接打开）")
+
+# 真实场景：用户装过旧版本，~/.dbtoolchain/store.db 里 observations 只有
+# (id, instance_id, kind, ts, payload)。旧代码在建索引时把索引 DDL 排在补列之前，
+# `CREATE INDEX ... observations(instance_id, metric, ts)` 直接抛
+# `no such column: metric` —— 而这句 DDL 每次 _conn() 都跑，
+# 于是升级后**所有**走档案的工具都报 E_QUERY。这条用例专门钉住它。
+_old_dir = tempfile.mkdtemp(prefix="dbt-oldstore-")
+_old_db = os.path.join(_old_dir, "store.db")
+_oc = _sq3.connect(_old_db)
+_oc.executescript("""
+CREATE TABLE observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    ts REAL NOT NULL,
+    payload TEXT NOT NULL
+);
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    tool TEXT NOT NULL,
+    instance_id TEXT,
+    summary TEXT
+);
+INSERT INTO observations (instance_id, kind, ts, payload)
+VALUES ('it:old:mysql', 'snapshot', 1700000000, '{"metrics": {"qps": 7}}');
+INSERT INTO observations (instance_id, kind, ts, payload)
+VALUES ('it:old:mysql', 'snapshot', 1700000100, '{"metrics": {"qps": 9}}');
+""")
+_oc.commit()
+_oc.close()
+
+_prev = os.environ.get("DBT_STORE")
+os.environ["DBT_STORE"] = _old_db
+try:
+    _rows = PS.get_history("it:old:mysql")
+    check("旧库能读出历史观测（升级不丢数据）", len(_rows) == 2)
+    check("旧库补列后 metric 可用", PS.metric_series("it:old:mysql", "qps") == [])
+    check("旧库建索引不再炸：字典可读", PS.list_dictionary("metric") == [])
+    _cols = {r[1] for r in _sq3.connect(_old_db).execute("PRAGMA table_info(observations)")}
+    check("observations 已补齐 v3 的四个新列",
+          {"metric", "value", "dims", "correlation_id"} <= _cols)
+    _idx = {r[0] for r in _sq3.connect(_old_db).execute(
+        "SELECT name FROM sqlite_master WHERE type='index'")}
+    check("idx_obs_series 已建（补列之后）", "idx_obs_series" in _idx)
+    _uv = _sq3.connect(_old_db).execute("PRAGMA user_version").fetchone()[0]
+    check("user_version 记为当前 SCHEMA_VERSION", _uv == PS.SCHEMA_VERSION, str(_uv))
+finally:
+    if _prev is None:
+        os.environ.pop("DBT_STORE", None)
+    else:
+        os.environ["DBT_STORE"] = _prev
+
+
+# ==================================================================
 print("\n" + "=" * 60)
 print("通过 %d 项，失败 %d 项" % (len(PASSED), len(FAILED)))
 if FAILED:

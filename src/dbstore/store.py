@@ -44,7 +44,7 @@ OBSERVATION_KINDS = (
     "diagnosis_event", "symptom",
 )
 
-SCHEMA = [
+SCHEMA_TABLES = [
     """CREATE TABLE IF NOT EXISTS observations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         instance_id TEXT NOT NULL,
@@ -166,6 +166,14 @@ SCHEMA = [
         created_at REAL,
         PRIMARY KEY(anomaly_id, change_id)
     )""",
+]
+
+# 索引单独列出来，且必须在 _migrate() 补齐列之后才建。
+# 顺序错了会出真事故：旧库的 observations 没有 metric 列，
+# `CREATE INDEX ... observations(instance_id, metric, ts)` 直接抛
+# `no such column: metric`，而这个 DDL 在每次 _conn() 都跑 ——
+# 于是所有走档案的工具全部报 E_QUERY，症状是「升级后什么都用不了」。
+SCHEMA_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_obs_instance ON observations(instance_id, ts)",
     "CREATE INDEX IF NOT EXISTS idx_obs_kind ON observations(instance_id, kind, ts)",
     "CREATE INDEX IF NOT EXISTS idx_obs_series ON observations(instance_id, metric, ts)",
@@ -204,10 +212,25 @@ def _conn() -> sqlite3.Connection:
         os.makedirs(d, exist_ok=True)
     c = sqlite3.connect(path)
     c.execute("PRAGMA journal_mode=WAL")
-    for ddl in SCHEMA:
-        c.execute(ddl)
-    _migrate(c)
+    # 建表/补列/建索引只在「库的版本号不对」时做一次。
+    # 原来是每次 _conn() 都跑一遍 16 条 DDL，单次调用要 9~11ms，其中大部分花在这。
+    # user_version 是文件里的一个整数，读它几乎不要钱，而且自愈 ——
+    # 用户把库文件删了重建，版本号回到 0，会重新初始化。
+    if c.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
+        _ensure_schema(c)
     return c
+
+
+def _ensure_schema(c: sqlite3.Connection) -> None:
+    """顺序不能换：建表 → 补列 → 建索引（见 SCHEMA_INDEXES 的注释）。"""
+    for ddl in SCHEMA_TABLES:
+        try:
+            c.execute(ddl)
+        except sqlite3.Error:
+            pass
+    _migrate(c)
+    _ensure_indexes(c)
+    c.commit()
 
 
 def _migrate(c: sqlite3.Connection) -> None:
@@ -222,6 +245,23 @@ def _migrate(c: sqlite3.Connection) -> None:
                     c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
                 except sqlite3.Error:
                     pass
+    try:
+        c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    except sqlite3.Error:
+        pass
+
+
+def _ensure_indexes(c: sqlite3.Connection) -> None:
+    """索引是性能设施，不是正确性前提。
+
+    补列失败（极端情况：表被别人改过）时宁可少一个索引，也不要让每一个
+    读写档案的调用都因为建索引失败而崩掉 —— 真正需要该列的查询自己会报错。
+    """
+    for ddl in SCHEMA_INDEXES:
+        try:
+            c.execute(ddl)
+        except sqlite3.Error:
+            pass
 
 
 def _iso(ts: float | None) -> str:
